@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Handicapper</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:wght@400;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f7f4ed; --fairway: #2b5c2e; --fairway-l: #3a7a3e;
+      --sand: #c8a84b; --sand-l: #dfc070;
+      --text: #1c1c18; --muted: #7a7060; --border: rgba(0,0,0,0.1);
+      --card-bg: #ffffff; --red: #9e3030; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body::before {
+      content:''; position:fixed; inset:0; pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='rgba(0,0,0,0.04)'/%3E%3C/svg%3E");
+    }
+    .site-header { display:block; width:100%; line-height:0; }
+    .site-header svg { display:block; width:100%; }
+    .main { max-width:800px; margin:0 auto; padding:1.5rem 1rem 4rem; position:relative; z-index:1; }
+    .section-label { font-family:'Libre Baskerville',serif; font-size:11px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--fairway); display:flex; align-items:center; gap:10px; margin-bottom:0.75rem; margin-top:1.25rem; }
+    .section-label::after { content:''; flex:1; height:1px; background:rgba(43,92,46,0.2); }
+    .card { background:var(--card-bg); border-radius:10px; border:1px solid var(--border); padding:1.25rem; margin-bottom:1rem; box-shadow:var(--shadow); }
+
+    .format-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .fmt-btn { padding:12px 8px; border:1.5px solid var(--border); border-radius:8px; background:transparent; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500; color:var(--muted); cursor:pointer; transition:all 0.15s; text-align:center; line-height:1.3; }
+    .fmt-btn .fmt-icon { font-size:22px; display:block; margin-bottom:4px; }
+    .fmt-btn.active { border-color:var(--fairway); background:var(--fairway); color:white; }
+    .fmt-btn:not(.active):hover { border-color:var(--fairway); color:var(--fairway); }
+
+    .toggle-grid { display:grid; gap:8px; }
+    .tog-btn { padding:10px 8px; border:1.5px solid var(--border); border-radius:7px; background:transparent; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500; color:var(--muted); cursor:pointer; transition:all 0.15s; text-align:center; }
+    .tog-btn.active { border-color:var(--fairway); background:var(--fairway); color:white; }
+    .tog-btn:not(.active):hover { border-color:var(--fairway); color:var(--fairway); }
+
+    .player-list { display:grid; gap:8px; margin-bottom:1rem; }
+    input[type="text"],input[type="number"] { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:7px; font-family:'DM Sans',sans-serif; font-size:14px; color:var(--text); background:#fafaf7; outline:none; transition:border-color 0.15s; }
+    input:focus { border-color:var(--fairway); }
+    input[type="number"] { text-align:center; font-weight:500; }
+    .remove-btn { width:36px; height:36px; border:1.5px solid #e0d8cc; border-radius:7px; background:transparent; color:var(--muted); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
+    .remove-btn:hover { border-color:var(--red); color:var(--red); background:#fff5f5; }
+    .add-btn { padding:9px; border:1.5px dashed rgba(43,92,46,0.35); border-radius:7px; background:transparent; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--fairway); cursor:pointer; transition:all 0.15s; width:100%; margin-top:4px; }
+    .add-btn:hover { background:rgba(43,92,46,0.05); border-style:solid; }
+
+    .calc-btn { width:100%; padding:14px; background:var(--fairway); color:white; border:none; border-radius:8px; font-family:'Playfair Display',serif; font-size:1.05rem; font-style:italic; letter-spacing:0.04em; cursor:pointer; transition:background 0.15s,transform 0.1s; margin-top:0.5rem; }
+    .calc-btn:hover { background:var(--fairway-l); }
+    .calc-btn:active { transform:scale(0.98); }
+
+    #results { display:none; }
+    .result-header { background:var(--fairway); color:white; border-radius:10px 10px 0 0; padding:1rem 1.25rem; }
+    .result-header h2 { font-family:'Playfair Display',serif; font-size:1.3rem; margin-bottom:0.25rem; }
+    .result-header p { font-size:12px; opacity:0.7; }
+    .result-body { background:var(--card-bg); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:1.25rem; box-shadow:var(--shadow); }
+
+    .summary-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; margin-bottom:1.25rem; }
+    .summary-box { background:#f7f4ed; border-radius:8px; padding:10px 12px; }
+    .summary-box .s-label { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+    .summary-box .s-val { font-size:1.3rem; font-weight:700; color:var(--fairway); font-family:'Playfair Display',serif; }
+    .summary-box .s-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+
+    .result-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:0.5rem; }
+    .result-table th { font-family:'Libre Baskerville',serif; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); padding:6px 10px; border-bottom:1px solid var(--border); text-align:left; }
+    .result-table th.c { text-align:center; }
+    .result-table td { padding:9px 10px; border-bottom:1px solid rgba(0,0,0,0.04); }
+    .result-table td.c { text-align:center; }
+    .result-table tr:last-child td { border-bottom:none; }
+    .pill { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+    .pill-green { background:rgba(43,92,46,0.12); color:var(--fairway); }
+    .pill-sand { background:rgba(200,168,75,0.18); color:#7a5c00; }
+    .pill-muted { background:rgba(0,0,0,0.06); color:var(--muted); }
+
+    /* TEAMS DISPLAY */
+    .teams-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; margin-bottom:1rem; }
+    .team-card { background:var(--card-bg); border:1.5px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
+    .team-card-header { color:white; padding:8px 12px; display:flex; justify-content:space-between; align-items:center; }
+    .team-card-name { font-family:'Libre Baskerville',serif; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; }
+    .team-card-hcp { font-size:12px; opacity:0.85; }
+    .team-players-list { padding:8px; display:grid; gap:4px; }
+    .player-chip { display:flex; align-items:center; justify-content:space-between; padding:6px 10px; border-radius:6px; border:1.5px solid transparent; cursor:pointer; transition:all 0.15s; background:#f7f4ed; user-select:none; }
+    .player-chip:hover { border-color:var(--sand); background:#fdf8ec; }
+    .player-chip.selected { border-color:var(--sand); background:rgba(200,168,75,0.15); box-shadow:0 0 0 2px rgba(200,168,75,0.25); }
+    .chip-name { font-size:13px; font-weight:500; }
+    .chip-hcp { font-size:11px; font-weight:700; color:var(--fairway); background:rgba(43,92,46,0.1); padding:2px 7px; border-radius:20px; }
+    .swap-bar { display:none; background:var(--sand); color:white; border-radius:8px; padding:10px 14px; font-size:13px; font-weight:500; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+    .swap-bar.show { display:flex; }
+    .swap-cancel { background:rgba(255,255,255,0.25); border:none; color:white; padding:4px 10px; border-radius:5px; font-size:12px; cursor:pointer; }
+
+    /* ODDS CALCULATOR */
+    .odds-section { margin-top:1.5rem; }
+    .odds-header { background:#1a3a1e; color:white; border-radius:10px 10px 0 0; padding:0.9rem 1.25rem; display:flex; align-items:center; gap:10px; }
+    .odds-header h3 { font-family:'Playfair Display',serif; font-size:1.1rem; font-style:italic; margin:0; }
+    .odds-body { background:var(--card-bg); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:1.25rem; box-shadow:var(--shadow); }
+    .odds-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:1rem; }
+    .odds-col h4 { font-family:'Libre Baskerville',serif; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+    .odds-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.04); font-size:13px; }
+    .odds-row:last-child { border-bottom:none; }
+    .odds-name { color:var(--text); font-weight:500; }
+    .odds-val { font-weight:700; font-family:'Playfair Display',serif; font-size:1rem; }
+    .odds-val.even { color:var(--fairway); }
+    .odds-val.fav { color:#1a5c9e; }
+    .odds-val.dog { color:var(--red); }
+    .odds-note { font-size:12px; color:var(--muted); font-style:italic; margin-top:0.75rem; padding:8px 10px; background:#f7f4ed; border-radius:6px; line-height:1.5; }
+
+    .hcp-note { background:#f0f7f0; border-left:3px solid var(--fairway); border-radius:0 8px 8px 0; padding:12px 14px; margin-top:1.25rem; }
+    .hcp-note-title { font-family:'Libre Baskerville',serif; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--fairway); margin-bottom:8px; }
+    .hcp-note-body { font-size:12px; color:var(--muted); line-height:1.7; }
+    .hcp-note-body strong { color:var(--text); font-weight:500; }
+    .hcp-note-body ul { margin:6px 0 0 16px; }
+    .hcp-note-body li { margin-bottom:3px; }
+
+    .error { background:#fff0f0; border:1px solid #f5c0c0; color:var(--red); border-radius:8px; padding:10px 14px; font-size:13px; display:none; margin-bottom:1rem; }
+    .error.show { display:block; }
+    .hint { font-size:12px; color:var(--muted); margin-top:6px; font-style:italic; }
+    .egg-icon { display:inline-block; width:24px; height:24px; vertical-align:middle; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+<header class="site-header">
+  <svg viewBox="0 0 680 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Handicapper">
+    <defs>
+      <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1a5a8a"/>
+        <stop offset="55%" stop-color="#4a8fbf"/>
+        <stop offset="100%" stop-color="#7ab8d8"/>
+      </linearGradient>
+      <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#3a8a3a"/>
+        <stop offset="40%" stop-color="#2d6a2d"/>
+        <stop offset="100%" stop-color="#1a4a1a"/>
+      </linearGradient>
+      <linearGradient id="horizonGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#7ab8d8"/>
+        <stop offset="100%" stop-color="#3a8a3a"/>
+      </linearGradient>
+      <filter id="cloudBlur">
+        <feGaussianBlur stdDeviation="1.2"/>
+      </filter>
+    </defs>
+    <rect x="0" y="0" width="680" height="180" fill="url(#skyGrad)"/>
+    <rect x="0" y="118" width="680" height="18" fill="url(#horizonGrad)" opacity="0.35"/>
+    <ellipse cx="118" cy="52" rx="68" ry="26" fill="#d0e8f5" opacity="0.55" filter="url(#cloudBlur)"/>
+    <ellipse cx="100" cy="54" rx="38" ry="20" fill="#eef6fc"/>
+    <ellipse cx="128" cy="48" rx="34" ry="19" fill="#f5fafd"/>
+    <ellipse cx="152" cy="53" rx="28" ry="17" fill="#eef6fc"/>
+    <ellipse cx="108" cy="43" rx="22" ry="16" fill="#f8fbfe"/>
+    <ellipse cx="130" cy="37" rx="20" ry="15" fill="#ffffff"/>
+    <ellipse cx="150" cy="43" rx="18" ry="13" fill="#f5fafd"/>
+    <ellipse cx="118" cy="35" rx="15" ry="12" fill="#ffffff"/>
+    <ellipse cx="118" cy="64" rx="48" ry="10" fill="#b8d4e8" opacity="0.4"/>
+    <ellipse cx="176" cy="56" rx="18" ry="10" fill="#e8f3fa" opacity="0.8"/>
+    <ellipse cx="190" cy="59" rx="12" ry="7" fill="#ddeef8" opacity="0.6"/>
+    <ellipse cx="548" cy="44" rx="72" ry="24" fill="#c8e0f0" opacity="0.5" filter="url(#cloudBlur)"/>
+    <ellipse cx="526" cy="48" rx="32" ry="18" fill="#eef6fc"/>
+    <ellipse cx="552" cy="42" rx="36" ry="20" fill="#f5fafd"/>
+    <ellipse cx="578" cy="47" rx="30" ry="18" fill="#eef6fc"/>
+    <ellipse cx="533" cy="36" rx="20" ry="14" fill="#f8fbfe"/>
+    <ellipse cx="554" cy="30" rx="22" ry="15" fill="#ffffff"/>
+    <ellipse cx="574" cy="35" rx="19" ry="14" fill="#f5fafd"/>
+    <ellipse cx="552" cy="58" rx="44" ry="9" fill="#b0ccde" opacity="0.38"/>
+    <ellipse cx="500" cy="51" rx="16" ry="9" fill="#e0eff8" opacity="0.7"/>
+    <ellipse cx="340" cy="28" rx="28" ry="10" fill="#e8f3fa" opacity="0.7"/>
+    <ellipse cx="340" cy="24" rx="16" ry="9" fill="#f5fafd" opacity="0.85"/>
+    <ellipse cx="330" cy="26" rx="12" ry="8" fill="#ffffff" opacity="0.7"/>
+    <ellipse cx="350" cy="26" rx="11" ry="7" fill="#f0f8fc" opacity="0.7"/>
+    <rect x="0" y="128" width="680" height="52" fill="url(#grassGrad)"/>
+    <rect x="0" y="128" width="680" height="5" fill="#4aaa4a" opacity="0.6"/>
+    <rect x="0" y="133" width="680" height="6" fill="#2a6a2a" opacity="0.25"/>
+    <rect x="0" y="139" width="680" height="6" fill="#256025" opacity="0.2"/>
+    <rect x="0" y="145" width="680" height="6" fill="#2a6a2a" opacity="0.2"/>
+    <rect x="0" y="151" width="680" height="6" fill="#256025" opacity="0.15"/>
+    <rect x="0" y="157" width="680" height="6" fill="#2a6a2a" opacity="0.15"/>
+    <rect x="0" y="163" width="680" height="17" fill="#1a4020" opacity="0.3"/>
+    <text x="344" y="112" font-family="Georgia,'Times New Roman',serif" font-size="66" font-weight="700"
+      fill="#1a0a04" text-anchor="middle" letter-spacing="1" font-style="italic"
+      stroke="#1a0a04" stroke-width="9" paint-order="stroke">The Handicapper</text>
+    <text x="341" y="109" font-family="Georgia,'Times New Roman',serif" font-size="66" font-weight="700"
+      fill="#c8392b" text-anchor="middle" letter-spacing="1" font-style="italic"
+      stroke="#1a0a04" stroke-width="3" paint-order="stroke">The Handicapper</text>
+  </svg>
+</header>
+<main class="main">
+
+  <!-- 1. GAME FORMAT -->
+  <div class="section-label">Game Format</div>
+  <div class="card">
+    <div class="format-grid">
+      <button class="fmt-btn active" id="fmt-bestball" onclick="setFormat('bestball')">
+        <span class="fmt-icon">⛳</span>Best Ball<br><small style="font-size:10px;opacity:0.7">Four-Ball</small>
+      </button>
+      <button class="fmt-btn" id="fmt-scramble" onclick="setFormat('scramble')">
+        <span class="fmt-icon">
+          <svg class="egg-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:39px;height:39px;">
+            <!-- Pan body -->
+            <ellipse cx="14" cy="20" rx="11" ry="7" fill="#888" stroke="#555" stroke-width="1.5"/>
+            <!-- Pan handle -->
+            <rect x="23" y="18.5" width="8" height="3" rx="1.5" fill="#555" stroke="#444" stroke-width="0.8"/>
+            <!-- Egg white -->
+            <ellipse cx="13" cy="19.5" rx="7.5" ry="5" fill="#f5f0e0" stroke="#d4c890" stroke-width="0.8"/>
+            <!-- Yolk -->
+            <circle cx="13" cy="19" r="2.8" fill="#f5c030" stroke="#d4a017" stroke-width="0.8"/>
+          </svg>
+        </span>Scramble
+      </button>
+      <button class="fmt-btn" id="fmt-matchplay" onclick="setFormat('matchplay')">
+        <span class="fmt-icon">🏆</span>Match Play
+      </button>
+    </div>
+  </div>
+
+  <!-- DESCRIPTION OF FORMAT -->
+  <div class="section-label">Description of Format</div>
+  <div class="card" id="format-desc-card">
+    <p id="format-desc-text" style="font-size:13px;color:var(--muted);line-height:1.7;">
+      In Best Ball (Four-Ball), each player plays their own ball for every hole. The team's score on each hole is the lowest individual score among the partners.
+    </p>
+  </div>
+
+  <!-- 2. PLAYERS -->
+  <div class="section-label">Players</div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 100px 36px;gap:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:var(--muted);padding:0 4px;">Name</span>
+      <span style="font-size:11px;color:var(--muted);text-align:center;">Handicap</span>
+      <span></span>
+    </div>
+    <div class="player-list" id="player-list"></div>
+    <button class="add-btn" id="add-player-btn" onclick="addPlayer()">＋ Add Player</button>
+  </div>
+
+  <!-- 3. NUMBER OF TEAMS -->
+  <div class="section-label" id="num-teams-label">Number of Teams</div>
+  <div class="card" id="num-teams-card">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:13px;color:var(--muted);">How many teams are playing?</span>
+      <input type="number" id="num-teams-input" min="2" max="12" value="2"
+        style="width:80px;padding:8px;text-align:center;font-size:15px;font-weight:500;"
+        oninput="setNumTeams(parseInt(this.value)||2)"/>
+    </div>
+  </div>
+
+  <div class="error" id="error"></div>
+  <button class="calc-btn" onclick="calculate()">Calculate Strokes & Odds →</button>
+
+  <!-- RESULTS: 5. Notes Section then 6. Odds Calculator -->
+  <div id="results">
+    <div style="margin-top:1.5rem;">
+      <div class="result-header">
+        <h2 id="result-title"></h2>
+        <p id="result-subtitle"></p>
+      </div>
+      <div class="result-body" id="result-body"></div>
+    </div>
+
+    <!-- ODDS SECTION -->
+    <div class="odds-section" id="odds-section">
+      <div class="odds-header">
+        <span style="font-size:1.2rem;">🎲</span>
+        <h3>Odds Calculator</h3>
+      </div>
+      <div class="odds-body" id="odds-body"></div>
+    </div>
+  </div>
+
+</main>
+<script>
+  let format = 'bestball';
+  let numTeams = 2;
+  let players = [];
+  let teams = [];
+  let swapFirst = null;
+  let pid = 0;
+
+  const TEAM_COLORS = ['#2b5c2e','#1a3a6e','#8a3a1e','#5a1e6e','#1e5a5a','#6e5a1e'];
+
+  // Init: 2 teams of 2 = 4 players
+  numTeams = 2;
+  for(let i=0;i<4;i++) addPlayer(false);
+  renderPlayerList();
+
+  // ── FORMAT ──
+  function setFormat(f) {
+    format = f;
+    ['bestball','scramble','matchplay'].forEach(x =>
+      document.getElementById('fmt-'+x).classList.toggle('active', x===f));
+
+    const numTeamsLabel = document.getElementById('num-teams-label');
+    const numTeamsCard  = document.getElementById('num-teams-card');
+
+    if(f === 'matchplay') {
+      numTeamsLabel.classList.add('hidden');
+      numTeamsCard.classList.add('hidden');
+    } else {
+      numTeamsLabel.classList.remove('hidden');
+      numTeamsCard.classList.remove('hidden');
+      syncPlayerCount();
+    }
+    // Update format description
+    const descs = {
+      bestball:  `In Best Ball (Four-Ball), each player plays their own ball for every hole. The team's score on each hole is the lowest individual score among the partners.`,
+      scramble:  `In a Scramble, all players on a team hit from the same spot on every shot — the team selects the best shot and everyone plays from there.`,
+      matchplay: `Standard golf — every man for himself. Each player competes individually, and handicap strokes are applied to level the field.`
+    };
+    document.getElementById('format-desc-text').textContent = descs[f];
+    document.getElementById('results').style.display='none';
+    renderPlayerList();
+  }
+
+  // ── NUMBER OF TEAMS ──
+  function setNumTeams(n) {
+    numTeams = Math.max(2, Math.min(12, n||2));
+    syncPlayerCount();
+    document.getElementById('results').style.display='none';
+    renderPlayerList();
+  }
+
+  // Infer team size from numTeams and player count
+  function inferTeamSize() {
+    if(format==='matchplay') return 1;
+    return Math.max(1, Math.round(players.length / numTeams));
+  }
+
+  // Keep player array sized to numTeams * inferred teamSize
+  function syncPlayerCount() {
+    if(format==='matchplay') return;
+    const target = numTeams * Math.max(1, Math.round(players.length / numTeams));
+    // Don't auto-resize — player count is set by user; just ensure minimum
+    const min = numTeams;
+    while(players.length < min) players.push({id:pid++, name:'', hcp:''});
+  }
+
+  // ── PLAYERS ──
+  function addPlayer(doRender=true) {
+    players.push({ id: pid++, name:'', hcp:'' });
+    if(doRender) { renderPlayerList(); }
+  }
+
+  function removePlayer(id) {
+    if(players.length <= 2) return;
+    players = players.filter(p=>p.id!==id);
+    renderPlayerList();
+  }
+
+  function renderPlayerList() {
+    const list = document.getElementById('player-list');
+    list.innerHTML = players.map((p,i) => `
+      <div style="display:grid;grid-template-columns:1fr 100px 36px;gap:8px;align-items:center;">
+        <input type="text" placeholder="Player ${i+1} name" value="${esc(p.name)}"
+          oninput="players[${i}].name=this.value"/>
+        <input type="number" placeholder="0" min="0" max="54" value="${p.hcp}"
+          oninput="players[${i}].hcp=this.value"/>
+        <button class="remove-btn" onclick="removePlayer(${p.id})">✕</button>
+      </div>`).join('');
+  }
+
+  // ── VALIDATE ──
+  function readPlayers() {
+    // Sync values from DOM
+    document.querySelectorAll('#player-list > div').forEach((row,i) => {
+      if(players[i]) {
+        players[i].name = row.querySelector('input[type=text]').value.trim();
+        players[i].hcp  = row.querySelector('input[type=number]').value;
+      }
+    });
+  }
+
+  function validate() {
+    readPlayers();
+    for(let i=0;i<players.length;i++) {
+      if(isNaN(parseFloat(players[i].hcp)))
+        return `Please enter a handicap for ${players[i].name||'Player '+(i+1)}.`;
+    }
+    if(format!=='matchplay') {
+      if(players.length < numTeams)
+        return `You need at least ${numTeams} players for ${numTeams} teams.`;
+      if(players.length % numTeams !== 0)
+        return `${players.length} players can't be split evenly into ${numTeams} teams. Adjust the number of players or teams.`;
+    }
+    return null;
+  }
+
+  // ── HANDICAP MATH ──
+  function defaultHoleRanks() { return Array.from({length:18},(_,i)=>i+1); }
+
+  function allocateStrokes(n, holeRanks) {
+    const gets = Array(18).fill(0);
+    if(n<=0) return gets;
+    const order = Array.from({length:18},(_,i)=>i).sort((a,b)=>holeRanks[a]-holeRanks[b]);
+    const full = Math.floor(n/18), extra = n%18;
+    for(let i=0;i<18;i++) gets[order[i]]+=full;
+    for(let i=0;i<extra;i++) gets[order[i]]++;
+    return gets;
+  }
+
+  function scrambleTeamHcp(team) {
+    const hcps = team.map(p=>parseFloat(p.hcp)).sort((a,b)=>a-b);
+    const pcts = hcps.length===2?[0.35,0.15]:hcps.length===3?[0.30,0.20,0.10]:[0.25,0.20,0.15,0.10];
+    return Math.round(hcps.reduce((s,h,i)=>s+h*(pcts[i]||0),0));
+  }
+
+
+  // ── ODDS MATH ──
+  function oddsClass(str) {
+    if(str==='+100'||str==='-100') return 'even';
+    if(str.startsWith('+')) return 'dog';
+    return 'fav';
+  }
+
+  function probToAmerican(p) {
+    p = Math.max(0.01, Math.min(0.99, p));
+    if(p >= 0.5) {
+      const odds = -Math.round((p/(1-p))*100);
+      return odds === -100 ? '+100' : String(odds);
+    } else {
+      return '+' + Math.round(((1-p)/p)*100);
+    }
+  }
+
+  function winProb(hcpDiff) {
+    return 1/(1+Math.exp(-0.05*hcpDiff));
+  }
+
+  // matchups = [{nameA, nameB, diffWithoutStrokes}]
+  // mode: 'matchplay' | 'team'
+  function renderOdds(matchups, mode) {
+    let html = '';
+    const note = `<p class="odds-note">
+      Odds shown in American format. +100 = even money. A negative number (e.g. -150) means you must wager $150 to win $100.
+      A positive number (e.g. +130) means a $100 wager wins $130. These odds reflect raw handicap differences — with strokes correctly applied, all players play to even money.
+    </p>`;
+
+    if(mode === 'matchplay') {
+      // ── MATCH PLAY: overall odds to win the match, then head-to-head pairs ──
+
+      // Overall: each player vs the field — use average HCP diff vs all opponents
+      const allHcps = matchups.map(m=>m.rawHcpA).concat([matchups[matchups.length-1].rawHcpB]);
+      const uniqueNames = [];
+      const uniqueHcps  = [];
+      matchups.forEach(m=>{
+        if(!uniqueNames.includes(m.nameA)){uniqueNames.push(m.nameA);uniqueHcps.push(m.rawHcpA);}
+        if(!uniqueNames.includes(m.nameB)){uniqueNames.push(m.nameB);uniqueHcps.push(m.rawHcpB);}
+      });
+      const minHcp = Math.min(...uniqueHcps);
+
+      html += `<div style="margin-bottom:1.5rem;">
+        <div style="font-family:'Libre Baskerville',serif;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--fairway);margin-bottom:0.75rem;">Odds to Win the Match (No Strokes)</div>
+        <table class="result-table"><thead><tr><th>Player</th><th class="c">Handicap</th><th class="c">Odds (No Strokes)</th></tr></thead><tbody>`;
+      uniqueNames.forEach((name,i)=>{
+        const diff = minHcp - uniqueHcps[i]; // negative = worse player
+        const prob = winProb(diff);
+        const odds = probToAmerican(prob);
+        html+=`<tr>
+          <td><strong>${esc(name)}</strong></td>
+          <td class="c">${uniqueHcps[i]}</td>
+          <td class="c"><span class="odds-val ${oddsClass(odds)}">${odds}</span></td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+
+      // Head-to-head pairs
+      if(matchups.length > 1) {
+        html += `<div style="font-family:'Libre Baskerville',serif;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--fairway);margin-bottom:0.75rem;">Head-to-Head Odds (No Strokes)</div>`;
+        matchups.forEach(m=>{
+          const probA = winProb(m.rawHcpB - m.rawHcpA);
+          const probB = winProb(m.rawHcpA - m.rawHcpB);
+          const oddsA = probToAmerican(probA);
+          const oddsB = probToAmerican(probB);
+          html+=`<div style="margin-bottom:1rem;">
+            <p style="font-family:'Playfair Display',serif;font-size:0.9rem;font-style:italic;color:var(--muted);margin-bottom:6px;">${esc(m.nameA)} vs ${esc(m.nameB)}</p>
+            <div class="odds-row"><span class="odds-name">${esc(m.nameA)}</span><span class="odds-val ${oddsClass(oddsA)}">${oddsA}</span></div>
+            <div class="odds-row"><span class="odds-name">${esc(m.nameB)}</span><span class="odds-val ${oddsClass(oddsB)}">${oddsB}</span></div>
+          </div>`;
+        });
+      }
+
+    } else {
+      // ── TEAM FORMAT: overall team odds at top, then head-to-head matchups ──
+      const uniqueTeams = [];
+      const uniqueTeamHcps = [];
+      matchups.forEach(m=>{
+        if(!uniqueTeams.includes(m.nameA)){uniqueTeams.push(m.nameA);uniqueTeamHcps.push(m.rawHcpA);}
+        if(!uniqueTeams.includes(m.nameB)){uniqueTeams.push(m.nameB);uniqueTeamHcps.push(m.rawHcpB);}
+      });
+      const minHcp = Math.min(...uniqueTeamHcps);
+
+      html += `<div style="margin-bottom:1.5rem;">
+        <div style="font-family:'Libre Baskerville',serif;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--fairway);margin-bottom:0.75rem;">Odds to Win the Match (No Strokes)</div>
+        <table class="result-table"><thead><tr><th>Team</th><th class="c">HCP</th><th class="c">Odds (No Strokes)</th></tr></thead><tbody>`;
+      uniqueTeams.forEach((name,i)=>{
+        const diff = minHcp - uniqueTeamHcps[i];
+        const prob = winProb(diff);
+        const odds = probToAmerican(prob);
+        html+=`<tr>
+          <td><strong>${esc(name)}</strong></td>
+          <td class="c">${uniqueTeamHcps[i]}</td>
+          <td class="c"><span class="odds-val ${oddsClass(odds)}">${odds}</span></td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+
+    html += note;
+    document.getElementById('odds-body').innerHTML = html;
+  }
+
+  // ── CALCULATE ──
+  function calculate() {
+    const errEl = document.getElementById('error');
+    errEl.classList.remove('show');
+    const err = validate();
+    if(err) { errEl.textContent=err; errEl.classList.add('show'); return; }
+
+    const holeRanks = defaultHoleRanks();
+
+    if(format==='matchplay') {
+      calcMatchPlay(holeRanks);
+    } else {
+      calcTeams(holeRanks);
+    }
+
+    document.getElementById('results').style.display='block';
+    document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  // ── INDIVIDUAL (no teams) ──
+  function calcIndividual(holeRanks) {
+    const hcps    = players.map(p=>parseFloat(p.hcp));
+    const minHcp  = Math.min(...hcps);
+    const netHcps = hcps.map(h=>h-minHcp);
+
+    document.getElementById('result-title').textContent =
+      (format==='bestball'?'Best Ball':'Scramble') + ' · Individual';
+    document.getElementById('result-subtitle').textContent =
+      'Handicaps used as entered — no adjustments applied';
+
+    let html = `<div class="summary-grid">`;
+    players.forEach((p,pi)=>{
+      html+=`<div class="summary-box">
+        <div class="s-label">${esc(p.name||'Player '+(pi+1))}</div>
+        <div class="s-val">${hcps[pi]}</div>
+        <div class="s-sub">Handicap · Receives ${netHcps[pi]} stroke${netHcps[pi]!==1?'s':''}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+
+    html+=`<table class="result-table">
+      <thead><tr><th>Player</th><th class="c">Handicap</th><th class="c">Strokes Received</th><th>Gives Strokes To</th></tr></thead>
+      <tbody>`;
+    players.forEach((p,pi)=>{
+      const gives = players.filter((_,qi)=>qi!==pi&&netHcps[qi]>netHcps[pi])
+        .map(q=>q.name||'Player').join(', ') || '—';
+      const recv = netHcps[pi];
+      html+=`<tr>
+        <td><strong>${esc(p.name||'Player '+(pi+1))}</strong></td>
+        <td class="c">${hcps[pi]}</td>
+        <td class="c"><span class="pill ${recv>0?'pill-sand':'pill-muted'}">${recv>0?'+'+recv+' strokes':'Scratch'}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${gives}</td>
+      </tr>`;
+    });
+    html+=`</tbody></table>`;
+    html+=hcpNoteHtml();
+    document.getElementById('result-body').innerHTML=html;
+
+    // Odds: all pairs
+    const matchups=[];
+    for(let a=0;a<players.length;a++) {
+      for(let b=a+1;b<players.length;b++) {
+        matchups.push({
+          nameA: players[a].name||'Player '+(a+1),
+          nameB: players[b].name||'Player '+(b+1),
+          rawHcpA: hcps[a],
+          rawHcpB: hcps[b]
+        });
+      }
+    }
+    renderOdds(matchups, 'team');
+  }
+
+  // ── TEAM CALCULATOR ──
+  function calcTeams(holeRanks) {
+    const sz = Math.round(players.length / numTeams);
+    teams = [];
+    for(let i=0;i<players.length;i+=sz) {
+      teams.push(players.slice(i,i+sz).map(p=>({...p,hcp:parseFloat(p.hcp)})));
+    }
+    renderTeamsAndResults(holeRanks);
+  }
+
+  function renderTeamsAndResults(holeRanks) {
+    const sz = teams[0]?teams[0].length:1;
+    document.getElementById('result-title').textContent =
+      (format==='bestball'?'Best Ball':'Scramble') + ` — ${numTeams} Teams of ${sz}`;
+    document.getElementById('result-subtitle').textContent =
+      format==='bestball' ? 'Handicaps used as entered · Click any two players to swap teams' : 'Scramble team handicap formula · Click any two players to swap teams';
+
+    // Team cards with swap functionality
+    let html = `<div class="swap-bar" id="swap-bar">
+      <span id="swap-msg">Select a player to swap</span>
+      <button class="swap-cancel" onclick="cancelSwap()">Cancel</button>
+    </div>
+    <div class="teams-grid" id="teams-grid-display">`;
+
+    if(format==='bestball') {
+      // ── BEST BALL: raw entered HCP, no adjustments ──
+      const allHcps  = teams.flat().map(p=>p.hcp);
+      const globalMin = Math.min(...allHcps);
+
+      teams.forEach((team,ti)=>{
+        const col = TEAM_COLORS[ti%TEAM_COLORS.length];
+        html+=`<div class="team-card">
+          <div class="team-card-header" style="background:${col}">
+            <span class="team-card-name">Team ${ti+1}</span>
+          </div>
+          <div class="team-players-list">
+            ${team.map((p,pi)=>`
+              <div class="player-chip ${isSelected(ti,pi)?'selected':''}" onclick="selectPlayerChip(${ti},${pi})">
+                <span class="chip-name">${esc(p.name)||'Player'}</span>
+                <span class="chip-hcp">${p.hcp}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+      });
+      html+=`</div>`;
+
+      // Player strokes table — one row per player
+      html+=`<table class="result-table">
+        <thead><tr><th>Team</th><th>Player</th><th class="c">Handicap</th><th class="c">Strokes Received</th></tr></thead>
+        <tbody>`;
+      let playerFlatIdx=0;
+      teams.forEach((team,ti)=>{
+        team.forEach((p,pi)=>{
+          const hcp  = allHcps[playerFlatIdx++];
+          const recv = hcp - globalMin;
+          html+=`<tr>
+            <td><strong style="color:${TEAM_COLORS[ti%TEAM_COLORS.length]}">Team ${ti+1}</strong></td>
+            <td>${esc(p.name||'Player')}</td>
+            <td class="c">${hcp}</td>
+            <td class="c"><span class="pill ${recv>0?'pill-sand':'pill-muted'}">${recv>0?'+'+recv+' strokes':'Scratch'}</span></td>
+          </tr>`;
+        });
+      });
+      html+=`</tbody></table>`;
+
+      // Build matchups for Odds Calculator (no table displayed)
+      const teamBestHcps = teams.map(team=>Math.min(...team.map(p=>p.hcp)));
+      const pairs=[];
+      for(let a=0;a<teams.length;a++)
+        for(let b=a+1;b<teams.length;b++) pairs.push([a,b]);
+      const matchups=[];
+      pairs.forEach(([a,b])=>{
+        matchups.push({
+          nameA:`Team ${a+1}`, nameB:`Team ${b+1}`,
+          rawHcpA:teamBestHcps[a],
+          rawHcpB:teamBestHcps[b]
+        });
+      });
+      html+=hcpNoteHtml();
+      document.getElementById('result-body').innerHTML=html;
+      renderOdds(matchups, 'team');
+
+    } else {
+      // ── SCRAMBLE: team HCP as before ──
+      const teamHcps = teams.map(t=>scrambleTeamHcp(t));
+      const minHcp   = Math.min(...teamHcps);
+      const netHcps  = teamHcps.map(h=>h-minHcp);
+
+      teams.forEach((team,ti)=>{
+        const col = TEAM_COLORS[ti%TEAM_COLORS.length];
+        html+=`<div class="team-card">
+          <div class="team-card-header" style="background:${col}">
+            <span class="team-card-name">Team ${ti+1}</span>
+            <span class="team-card-hcp">HCP ${teamHcps[ti]}</span>
+          </div>
+          <div class="team-players-list">
+            ${team.map((p,pi)=>`
+              <div class="player-chip ${isSelected(ti,pi)?'selected':''}" onclick="selectPlayerChip(${ti},${pi})">
+                <span class="chip-name">${esc(p.name)||'Player'}</span>
+                <span class="chip-hcp">${p.hcp}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+      });
+      html+=`</div>`;
+
+      html+=`<table class="result-table">
+        <thead><tr><th>Team</th><th>Members</th><th class="c">Team HCP</th><th class="c">Strokes Received</th></tr></thead>
+        <tbody>`;
+      teams.forEach((team,ti)=>{
+        const members=team.map(p=>p.name||'Player').join(' & ');
+        const recv=netHcps[ti];
+        html+=`<tr>
+          <td><strong style="color:${TEAM_COLORS[ti%TEAM_COLORS.length]}">Team ${ti+1}</strong></td>
+          <td style="font-size:12px">${esc(members)}</td>
+          <td class="c">${teamHcps[ti]}</td>
+          <td class="c"><span class="pill ${recv>0?'pill-sand':'pill-muted'}">${recv>0?'+'+recv+' strokes':'Scratch'}</span></td>
+        </tr>`;
+      });
+      html+=`</tbody></table>`;
+
+      // Build matchups for Odds Calculator (no table displayed)
+      const pairs=[];
+      for(let a=0;a<teams.length;a++)
+        for(let b=a+1;b<teams.length;b++) pairs.push([a,b]);
+      const matchups=[];
+      pairs.forEach(([a,b])=>{
+        matchups.push({
+          nameA:`Team ${a+1}`, nameB:`Team ${b+1}`,
+          rawHcpA:teamHcps[a],
+          rawHcpB:teamHcps[b]
+        });
+      });
+      html+=hcpNoteHtml();
+      document.getElementById('result-body').innerHTML=html;
+      renderOdds(matchups, 'team');
+    }
+  }
+
+  // ── SWAP LOGIC ──
+  function isSelected(ti,pi) { return swapFirst&&swapFirst.t===ti&&swapFirst.p===pi; }
+
+  function selectPlayerChip(ti,pi) {
+    const bar=document.getElementById('swap-bar');
+    if(!swapFirst) {
+      swapFirst={t:ti,p:pi};
+      document.getElementById('swap-msg').textContent=`"${teams[ti][pi].name||'Player'}" selected — pick someone to swap with`;
+      bar.classList.add('show');
+      refreshChips();
+    } else {
+      if(swapFirst.t===ti&&swapFirst.p===pi){cancelSwap();return;}
+      const a=teams[swapFirst.t][swapFirst.p];
+      teams[swapFirst.t][swapFirst.p]=teams[ti][pi];
+      teams[ti][pi]=a;
+      swapFirst=null;
+      bar.classList.remove('show');
+      renderTeamsAndResults(defaultHoleRanks());
+    }
+  }
+
+  function cancelSwap(){
+    swapFirst=null;
+    document.getElementById('swap-bar')?.classList.remove('show');
+    refreshChips();
+  }
+
+  function refreshChips(){
+    document.querySelectorAll('.player-chip').forEach((chip,idx)=>{
+      const ti=parseInt(chip.getAttribute('data-ti'));
+      const pi=parseInt(chip.getAttribute('data-pi'));
+      chip.classList.toggle('selected',isSelected(ti,pi));
+    });
+    // Re-render is cleaner for chip selection state
+    const grid=document.getElementById('teams-grid-display');
+    if(grid){
+      grid.querySelectorAll('.player-chip').forEach(chip=>{
+        const onclick=chip.getAttribute('onclick');
+        if(onclick){
+          const m=onclick.match(/selectPlayerChip\((\d+),(\d+)\)/);
+          if(m) chip.classList.toggle('selected',isSelected(parseInt(m[1]),parseInt(m[2])));
+        }
+      });
+    }
+  }
+
+  // ── MATCH PLAY ──
+  function calcMatchPlay(holeRanks) {
+    const hcps    = players.map(p=>parseFloat(p.hcp));
+    const minHcp  = Math.min(...hcps);
+    const netHcps = hcps.map(h=>h-minHcp);
+
+    document.getElementById('result-title').textContent='Match Play — Stroke Allocation';
+    document.getElementById('result-subtitle').textContent='Handicaps used as entered — no adjustments applied';
+
+    let html=`<div class="summary-grid">`;
+    players.forEach((p,pi)=>{
+      html+=`<div class="summary-box">
+        <div class="s-label">${esc(p.name||'Player '+(pi+1))}</div>
+        <div class="s-val">${hcps[pi]}</div>
+        <div class="s-sub">Handicap · Receives ${netHcps[pi]} stroke${netHcps[pi]!==1?'s':''}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+
+    html+=`<table class="result-table">
+      <thead><tr><th>Player</th><th class="c">Handicap</th><th class="c">Strokes Received</th><th>Strokes Given By</th></tr></thead>
+      <tbody>`;
+    players.forEach((p,pi)=>{
+      const recv=netHcps[pi];
+      const givenBy=recv>0?(players.find((_,qi)=>netHcps[qi]===0)?.name||'Scratch player'):'—';
+      html+=`<tr>
+        <td><strong>${esc(p.name||'Player '+(pi+1))}</strong></td>
+        <td class="c">${hcps[pi]}</td>
+        <td class="c"><span class="pill ${recv>0?'pill-sand':'pill-muted'}">${recv>0?'+'+recv+' strokes':'Scratch'}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${givenBy}</td>
+      </tr>`;
+    });
+    html+=`</tbody></table>`;
+    html+=hcpNoteHtml();
+    document.getElementById('result-body').innerHTML=html;
+
+    // Odds: all pairs
+    const matchups=[];
+    for(let a=0;a<players.length;a++) {
+      for(let b=a+1;b<players.length;b++) {
+        matchups.push({
+          nameA:players[a].name||'Player '+(a+1),
+          nameB:players[b].name||'Player '+(b+1),
+          rawHcpA:hcps[a],
+          rawHcpB:hcps[b]
+        });
+      }
+    }
+    renderOdds(matchups, 'matchplay');
+  }
+
+  function hcpNoteHtml() {
+    if(format==='bestball') {
+      return `<div class="hcp-note">
+        <div class="hcp-note-title">How Strokes Are Allocated — Best Ball</div>
+        <div class="hcp-note-body">
+          In Best Ball, each player's entered handicap is used directly — no adjustments are applied.
+          <ul>
+            <li>The player with the <strong>lowest handicap plays at scratch</strong> (receives zero strokes).</li>
+            <li>Every other player receives strokes equal to the <strong>difference</strong> between their handicap and the lowest handicap in the group.</li>
+          </ul>
+        </div>
+      </div>`;
+    } else if(format==='scramble') {
+      return `<div class="hcp-note">
+        <div class="hcp-note-title">How Team HCP is Calculated — Scramble</div>
+        <div class="hcp-note-body">
+          In Scramble, a single <strong>Team Handicap</strong> is calculated using a weighted average of all players' entered handicaps, sorted from lowest to highest:
+          <ul>
+            <li><strong>2-person team:</strong> 35% of lowest HCP + 15% of highest HCP</li>
+            <li><strong>3-person team:</strong> 30% of lowest + 20% of middle + 10% of highest</li>
+            <li><strong>4-person team:</strong> 25% of lowest + 20% of 2nd + 15% of 3rd + 10% of highest</li>
+          </ul>
+          The result is rounded to the nearest whole number. The team with the lowest HCP plays at scratch, and all other teams receive the difference in strokes.
+        </div>
+      </div>`;
+    } else {
+      return `<div class="hcp-note">
+        <div class="hcp-note-title">How Strokes Are Allocated — Match Play</div>
+        <div class="hcp-note-body">
+          In Match Play, each player's entered handicap is used directly — no adjustments are applied.
+          <ul>
+            <li>The player with the <strong>lowest handicap plays at scratch</strong> (receives zero strokes).</li>
+            <li>All other players receive strokes equal to the <strong>difference</strong> between their handicap and the lowest handicap.</li>
+            <li>Strokes are allocated to the <strong>hardest holes first</strong> (hole 1 = hardest, hole 18 = easiest by default).</li>
+          </ul>
+          If handicaps are accurate, each player should have an approximately equal chance of winning each hole.
+        </div>
+      </div>`;
+    }
+  }
+
+  function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
